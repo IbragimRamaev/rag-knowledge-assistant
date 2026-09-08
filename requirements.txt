@@ -5,6 +5,8 @@ uvicorn[standard]==0.52.4
 # LLM & embedding providers
 anthropic==1.4.0
 openai==3.8.0
+tiktoken==0.14.0
+httpx2==2.12.0  # imported directly in app/providers/openai_embedding.py (brotli workaround)
 
 # Vector DB (PostgreSQL + pgvector)
 asyncpg==0.31.0
