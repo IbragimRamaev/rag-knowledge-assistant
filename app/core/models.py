@@ -18,3 +18,13 @@ class ChunkData:
     source_document: str
     chunk_index: int
     embedding: Optional[list[float]] = None
+
+
+@dataclass
+class RetrievedChunk:
+    """A chunk returned by VectorStore.search, ranked by similarity to the query."""
+
+    text: str
+    source_document: str
+    chunk_index: int
+    score: float
