@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     llm_model: str = "claude-sonnet-5"
     embedding_model: str = "text-embedding-3-small"
 
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/rag_knowledge_assistant"
+    database_url: str = "postgresql://postgres:devpassword@localhost:5432/rag_db"
 
     default_company_id: str = "demo-company"
 
