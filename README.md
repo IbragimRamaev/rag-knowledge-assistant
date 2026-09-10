@@ -21,6 +21,14 @@ AI-powered assistant that answers employee questions using a company's internal 
 - **Embeddings:** OpenAI text-embedding-3-small
 - **Infra:** Docker, docker-compose
 
+## Roadmap / Known limitations
+
+Only `.txt` and `.md` documents are supported right now. This is a deliberate MVP scope, not a technical constraint — the loader sits behind an interface, isolated from the rest of the pipeline, so PDF, Word (`.docx`) and Excel support can be added as new modules under `app/ingestion/` without touching the chunker, embedder or storage layer.
+
+Tables are a separate problem. Reading the file is the easy part — tabular data doesn't fit sentence-based chunking well, so it'll need its own row-based processing path rather than reusing the current chunker.
+
+New formats will be added as real client needs come up, not preemptively.
+
 ## Architecture
 
 
