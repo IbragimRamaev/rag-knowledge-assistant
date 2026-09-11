@@ -47,7 +47,9 @@ def chunk_document(
     while start < total_sentences:
         end = start
         token_count = 0
-        while end < total_sentences and (token_count + sentence_tokens[end] <= max_tokens or end == start):
+        while end < total_sentences and (
+            token_count + sentence_tokens[end] <= max_tokens or end == start
+        ):
             token_count += sentence_tokens[end]
             end += 1
 
@@ -63,7 +65,9 @@ def chunk_document(
 
         chunk_text = " ".join(sentences[start:end])
         chunks.append(
-            ChunkData(text=chunk_text, source_document=document.source_document, chunk_index=len(chunks))
+            ChunkData(
+                text=chunk_text, source_document=document.source_document, chunk_index=len(chunks)
+            )
         )
 
         if end >= total_sentences:

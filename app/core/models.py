@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -17,7 +16,7 @@ class ChunkData:
     text: str
     source_document: str
     chunk_index: int
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
 
 @dataclass

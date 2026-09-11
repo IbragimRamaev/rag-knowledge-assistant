@@ -1,0 +1,42 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-yaml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+
+  - repo: local
+    hooks:
+      - id: forbid-env-file
+        name: forbid committing .env
+        entry: >-
+          Refusing to commit .env - it holds real secrets and must stay local.
+          Unstage it (git restore --staged .env) and keep it out of git; only
+          .env.example belongs in the repo.
+        language: fail
+        files: '(^|/)\.env$'
+
+      - id: pytest
+        name: pytest
+        # PYTHONPATH is cleared so a machine-wide PYTHONPATH (e.g. a sourced ROS
+        # setup.bash) can't leak foreign pytest11 plugins into this project's venv.
+        entry: bash -c 'PYTHONPATH= pytest tests/'
+        language: system
+        pass_filenames: false
+        always_run: true

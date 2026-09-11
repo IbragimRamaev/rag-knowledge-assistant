@@ -37,7 +37,9 @@ async def main() -> None:
 
         print(f"Query: {TEST_QUESTION!r}\n")
         for rank, result in enumerate(results, start=1):
-            print(f"{rank}. score={result.score:.4f} [{result.source_document}#{result.chunk_index}]")
+            print(
+                f"{rank}. score={result.score:.4f} [{result.source_document}#{result.chunk_index}]"
+            )
             print(f"   {result.text[:200]}\n")
     finally:
         await store.close()

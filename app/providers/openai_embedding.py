@@ -12,7 +12,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         if client is None:
             # Some environments have a brotli build incompatible with httpx2's default
             # Accept-Encoding negotiation (TypeError: process() takes no keyword arguments).
-            # Force gzip/deflate to sidestep brotli entirely - same workaround as day2_embeddings.py.
+            # Force gzip/deflate to sidestep brotli entirely.
             http_client = httpx2.Client(headers={"Accept-Encoding": "gzip, deflate"})
             client = OpenAI(api_key=settings.openai_api_key, http_client=http_client)
         self._client = client
