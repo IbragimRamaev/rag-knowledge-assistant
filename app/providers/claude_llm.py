@@ -1,8 +1,12 @@
+import logging
+
 from anthropic import AsyncAnthropic
 
 from app.config import settings
 from app.core.interfaces import LLMProvider
 from app.core.models import RetrievedChunk
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """\
 You are a company knowledge-base assistant. You answer employee questions using \
@@ -40,5 +44,11 @@ class ClaudeLLMProvider(LLMProvider):
             system=_SYSTEM_PROMPT,
             thinking={"type": "disabled"},
             messages=[{"role": "user", "content": user_message}],
+        )
+        logger.info(
+            "Claude usage: model=%s input_tokens=%d output_tokens=%d",
+            self._model,
+            response.usage.input_tokens,
+            response.usage.output_tokens,
         )
         return "".join(block.text for block in response.content if block.type == "text")
