@@ -24,3 +24,12 @@ class VectorStore(ABC):
         self, query_embedding: list[float], top_k: int = 5, company_id: str | None = None
     ) -> list[RetrievedChunk]:
         """Return the top_k chunks most similar to query_embedding, best match first."""
+
+
+class LLMProvider(ABC):
+    """Generates a grounded answer from a question and retrieved context. Swap implementations
+    (Claude, GPT, ...) without touching the RAG engine."""
+
+    @abstractmethod
+    async def generate(self, question: str, context_chunks: list[RetrievedChunk]) -> str:
+        """Answer using only context_chunks; state ignorance if they're insufficient."""
