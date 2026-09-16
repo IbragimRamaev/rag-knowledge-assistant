@@ -13,5 +13,5 @@ class Retriever:
     async def retrieve(
         self, question: str, top_k: int = 5, company_id: str | None = None
     ) -> list[RetrievedChunk]:
-        [query_embedding] = self._embedding_provider.embed([question])
+        [query_embedding] = await self._embedding_provider.embed([question])
         return await self._vector_store.search(query_embedding, top_k=top_k, company_id=company_id)
