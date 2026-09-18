@@ -7,6 +7,7 @@ class AskRequest(BaseModel):
 
 class AskResponse(BaseModel):
     answer: str
+    source_documents: list[str]
 
 
 class IngestRequest(BaseModel):

@@ -88,9 +88,10 @@ def main() -> None:
                 f"got {response.status_code}",
             )
             if response.status_code == 200:
-                answer = response.json()["answer"]
+                body = response.json()
                 print(f"    Q: {question}")
-                print(f"    A: {answer}\n")
+                print(f"    A: {body['answer']}")
+                print(f"    sources: {body['source_documents']}\n")
 
             # --- edge case: empty question -> 400 ---
             response = client.post("/ask", json={"question": ""})
