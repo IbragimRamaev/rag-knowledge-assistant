@@ -29,12 +29,12 @@ async def ask(payload: AskRequest, rag_engine: RAGEngineDep) -> AskResponse:
         )
 
     try:
-        answer = await rag_engine.answer(question)
+        result = await rag_engine.answer(question)
     except _DB_UNAVAILABLE_ERRORS as exc:
         logger.exception("Vector database unavailable while answering a question")
         raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL) from exc
 
-    return AskResponse(answer=answer)
+    return AskResponse(answer=result.answer, source_documents=result.source_documents)
 
 
 @router.post("/ingest", response_model=IngestResponse)

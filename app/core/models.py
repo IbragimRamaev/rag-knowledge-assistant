@@ -27,3 +27,14 @@ class RetrievedChunk:
     source_document: str
     chunk_index: int
     score: float
+
+
+NO_INFORMATION_ANSWER = "У меня нет этой информации в базе знаний."
+
+
+@dataclass
+class AnswerResult:
+    """The result of RAGEngine.answer(): the generated answer plus which documents grounded it."""
+
+    answer: str
+    source_documents: list[str]
