@@ -35,7 +35,7 @@ QUESTIONS = [
 async def main() -> None:
     embedding_provider = OpenAIEmbeddingProvider()
 
-    chunks = ingest_documents(DOCUMENTS_DIR, embedding_provider)
+    chunks = await ingest_documents(DOCUMENTS_DIR, embedding_provider)
     print(f"Ingested {len(chunks)} chunks from {DOCUMENTS_DIR}")
 
     store = PgVectorStore(settings.database_url)
