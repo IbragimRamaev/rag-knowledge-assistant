@@ -1,5 +1,5 @@
 services:
-  db:
+  postgres:
     image: pgvector/pgvector:pg16
     container_name: rag-postgres
     restart: unless-stopped
@@ -11,6 +11,32 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rag_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: rag-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Overrides the .env value (which points at localhost for local, non-Docker
+      # runs) - inside the compose network the DB is reachable by service name.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/${POSTGRES_DB:-rag_db}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Dev convenience: host code overlays the image's copy so edits show up without
+      # a rebuild. The Dockerfile's own CMD (no --reload) stays what a prod image runs.
+      - ./app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

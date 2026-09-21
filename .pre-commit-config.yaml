@@ -34,9 +34,11 @@ repos:
 
       - id: pytest
         name: pytest
-        # PYTHONPATH is cleared so a machine-wide PYTHONPATH (e.g. a sourced ROS
+        # Call .venv/bin/pytest directly instead of relying on `pytest` being on PATH -
+        # this hook must work whether or not the venv is activated in the committing
+        # shell. PYTHONPATH is cleared so a machine-wide PYTHONPATH (e.g. a sourced ROS
         # setup.bash) can't leak foreign pytest11 plugins into this project's venv.
-        entry: bash -c 'PYTHONPATH= pytest tests/'
+        entry: bash -c 'PYTHONPATH= .venv/bin/pytest tests/'
         language: system
         pass_filenames: false
         always_run: true
