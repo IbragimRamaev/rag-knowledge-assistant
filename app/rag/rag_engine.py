@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 # rejected costs the answer entirely).
 DEFAULT_MIN_SCORE_THRESHOLD = 0.25
 
+# A chunk is only listed in source_documents if its score is within 30% of the top
+# chunk's score - retrieval returns top_k chunks regardless of whether they actually
+# contributed to the answer, and reporting all of them as "sources" overstates what
+# was actually used.
+DEFAULT_SOURCE_RELEVANCE_MARGIN = 0.3
+
 
 class RAGEngine:
     """Orchestrates retrieval + generation to answer a question grounded in the knowledge base."""
@@ -22,10 +28,12 @@ class RAGEngine:
         retriever: Retriever,
         llm_provider: LLMProvider,
         min_score_threshold: float = DEFAULT_MIN_SCORE_THRESHOLD,
+        source_relevance_margin: float = DEFAULT_SOURCE_RELEVANCE_MARGIN,
     ) -> None:
         self._retriever = retriever
         self._llm_provider = llm_provider
         self.min_score_threshold = min_score_threshold
+        self.source_relevance_margin = source_relevance_margin
 
     async def answer(
         self, question: str, top_k: int = 5, company_id: str | None = None
@@ -46,5 +54,11 @@ class RAGEngine:
             return AnswerResult(answer=NO_INFORMATION_ANSWER, source_documents=[])
 
         answer_text = await self._llm_provider.generate(question, chunks)
-        source_documents = list(dict.fromkeys(chunk.source_document for chunk in chunks))
+
+        relevance_cutoff = best_score * (1 - self.source_relevance_margin)
+        source_documents = list(
+            dict.fromkeys(
+                chunk.source_document for chunk in chunks if chunk.score >= relevance_cutoff
+            )
+        )
         return AnswerResult(answer=answer_text, source_documents=source_documents)

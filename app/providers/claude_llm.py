@@ -16,7 +16,9 @@ Rules:
 - Base your answer strictly on <context>. Never use outside knowledge, even if you know the answer.
 - If <context> does not contain enough information to answer <question>, say so honestly \
 (e.g. "{NO_INFORMATION_ANSWER}") instead of guessing or inventing an answer.
-- Respond in Russian, concisely - a few sentences at most.\
+- Respond in Russian, concisely - a few sentences at most.
+- Plain text only - no markdown (no **bold**, no bullet/numbered lists, no headers). \
+The answer is rendered as-is in a chat UI that does not interpret markdown.\
 """
 
 _MAX_TOKENS = 1024
