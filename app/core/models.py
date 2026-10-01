@@ -29,6 +29,14 @@ class RetrievedChunk:
     score: float
 
 
+@dataclass
+class HistoryTurn:
+    """One prior question/answer pair from the conversation, as sent by the client."""
+
+    question: str
+    answer: str
+
+
 NO_INFORMATION_ANSWER = "У меня нет этой информации в базе знаний."
 
 
@@ -37,4 +45,18 @@ class AnswerResult:
     """The result of RAGEngine.answer(): the generated answer plus which documents grounded it."""
 
     answer: str
+    source_documents: list[str]
+
+
+@dataclass
+class StreamTextChunk:
+    """One incremental piece of text from RAGEngine.answer_stream()."""
+
+    text: str
+
+
+@dataclass
+class StreamSources:
+    """Final event from RAGEngine.answer_stream(): which documents grounded the answer."""
+
     source_documents: list[str]

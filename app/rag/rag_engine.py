@@ -1,10 +1,24 @@
 import logging
+from collections.abc import AsyncIterator
 
 from app.core.interfaces import LLMProvider
-from app.core.models import NO_INFORMATION_ANSWER, AnswerResult
+from app.core.models import (
+    NO_INFORMATION_ANSWER,
+    AnswerResult,
+    HistoryTurn,
+    RetrievedChunk,
+    StreamSources,
+    StreamTextChunk,
+)
+from app.rag.query_contextualizer import rewrite_query
 from app.rag.retriever import Retriever
 
 logger = logging.getLogger(__name__)
+
+# How many recent turns generation sees for conversational tone. Deliberately small -
+# this is not what grounds the answer (retrieval + source_documents is), just what
+# keeps replies from sounding like each question lands in a vacuum.
+GENERATION_HISTORY_TURNS = 3
 
 # Picked from scripts/smoke_test_rag.py's real off-topic vs. on-topic scores, not guessed:
 # off-topic questions scored up to 0.192 ("2+2"), the weakest genuinely relevant match
@@ -35,10 +49,17 @@ class RAGEngine:
         self.min_score_threshold = min_score_threshold
         self.source_relevance_margin = source_relevance_margin
 
-    async def answer(
-        self, question: str, top_k: int = 5, company_id: str | None = None
-    ) -> AnswerResult:
-        chunks = await self._retriever.retrieve(question, top_k=top_k, company_id=company_id)
+    async def _retrieve_grounded_chunks(
+        self, question: str, history: list[HistoryTurn], top_k: int, company_id: str | None
+    ) -> tuple[list[RetrievedChunk], float] | None:
+        """Rewrite + retrieve + threshold check, shared by answer() and answer_stream().
+        Returns (chunks, best_score) if retrieval cleared the threshold, None if the
+        caller should short-circuit to NO_INFORMATION_ANSWER without calling the LLM."""
+        retrieval_query = await rewrite_query(question, history)
+        if retrieval_query != question:
+            logger.info("Rewrote query for retrieval: %r -> %r", question, retrieval_query)
+
+        chunks = await self._retriever.retrieve(retrieval_query, top_k=top_k, company_id=company_id)
 
         best_score = chunks[0].score if chunks else None
         if best_score is None or best_score < self.min_score_threshold:
@@ -49,16 +70,66 @@ class RAGEngine:
                 "Best retrieval score %s below threshold %.4f for %r; skipping the LLM call",
                 f"{best_score:.4f}" if best_score is not None else "n/a",
                 self.min_score_threshold,
-                question,
+                retrieval_query,
             )
-            return AnswerResult(answer=NO_INFORMATION_ANSWER, source_documents=[])
+            return None
 
-        answer_text = await self._llm_provider.generate(question, chunks)
+        return chunks, best_score
 
+    def _filter_source_documents(
+        self, chunks: list[RetrievedChunk], best_score: float
+    ) -> list[str]:
         relevance_cutoff = best_score * (1 - self.source_relevance_margin)
-        source_documents = list(
+        return list(
             dict.fromkeys(
                 chunk.source_document for chunk in chunks if chunk.score >= relevance_cutoff
             )
         )
+
+    async def answer(
+        self,
+        question: str,
+        history: list[HistoryTurn] | None = None,
+        top_k: int = 5,
+        company_id: str | None = None,
+    ) -> AnswerResult:
+        history = history or []
+
+        retrieved = await self._retrieve_grounded_chunks(question, history, top_k, company_id)
+        if retrieved is None:
+            return AnswerResult(answer=NO_INFORMATION_ANSWER, source_documents=[])
+        chunks, best_score = retrieved
+
+        recent_history = history[-GENERATION_HISTORY_TURNS:]
+        answer_text = await self._llm_provider.generate(question, chunks, history=recent_history)
+
+        source_documents = self._filter_source_documents(chunks, best_score)
         return AnswerResult(answer=answer_text, source_documents=source_documents)
+
+    async def answer_stream(
+        self,
+        question: str,
+        history: list[HistoryTurn] | None = None,
+        top_k: int = 5,
+        company_id: str | None = None,
+    ) -> AsyncIterator[StreamTextChunk | StreamSources]:
+        """Same semantics as answer(), yielded incrementally: retrieval happens
+        synchronously up front (exactly like answer()), then generation streams as
+        text chunks, and source_documents arrives as one final event."""
+        history = history or []
+
+        retrieved = await self._retrieve_grounded_chunks(question, history, top_k, company_id)
+        if retrieved is None:
+            yield StreamTextChunk(text=NO_INFORMATION_ANSWER)
+            yield StreamSources(source_documents=[])
+            return
+        chunks, best_score = retrieved
+
+        recent_history = history[-GENERATION_HISTORY_TURNS:]
+        async for text in self._llm_provider.generate_stream(
+            question, chunks, history=recent_history
+        ):
+            yield StreamTextChunk(text=text)
+
+        source_documents = self._filter_source_documents(chunks, best_score)
+        yield StreamSources(source_documents=source_documents)
