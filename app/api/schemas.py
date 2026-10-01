@@ -1,8 +1,11 @@
 from pydantic import BaseModel
 
+from app.core.models import HistoryTurn
+
 
 class AskRequest(BaseModel):
     question: str
+    history: list[HistoryTurn] = []
 
 
 class AskResponse(BaseModel):

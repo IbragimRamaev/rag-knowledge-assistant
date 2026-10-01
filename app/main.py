@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -10,6 +11,11 @@ from app.providers.openai_embedding import OpenAIEmbeddingProvider
 from app.rag.rag_engine import RAGEngine
 from app.rag.retriever import Retriever
 from app.storage.pg_vector_store import PgVectorStore
+
+# Without this, app.*'s logger.info() calls (Claude/Haiku token usage, query
+# rewrites, threshold decisions) are silently dropped - the root logger defaults to
+# WARNING, and uvicorn only configures its own uvicorn.* loggers, not ours.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 
 @asynccontextmanager
