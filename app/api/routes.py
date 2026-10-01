@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 MAX_QUESTION_LENGTH = 2000
+MAX_HISTORY_MESSAGES = 20
 
 _DB_UNAVAILABLE_ERRORS = (OSError, asyncpg.PostgresError, asyncpg.InterfaceError)
 _DB_UNAVAILABLE_DETAIL = "Vector database is unavailable, try again later."
@@ -28,8 +29,14 @@ async def ask(payload: AskRequest, rag_engine: RAGEngineDep) -> AskResponse:
             detail=f"Question is too long ({len(question)} chars, max {MAX_QUESTION_LENGTH}).",
         )
 
+    # MVP simplification: the client resends the full history on every request and
+    # nothing is persisted server-side. For production this should move to DB-backed
+    # session storage keyed by session_id/user_id instead - this trusts whatever the
+    # client sends and caps it defensively, but doesn't survive a page reload.
+    history = payload.history[-MAX_HISTORY_MESSAGES:]
+
     try:
-        result = await rag_engine.answer(question)
+        result = await rag_engine.answer(question, history=history)
     except _DB_UNAVAILABLE_ERRORS as exc:
         logger.exception("Vector database unavailable while answering a question")
         raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL) from exc

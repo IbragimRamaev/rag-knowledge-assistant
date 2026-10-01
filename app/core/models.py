@@ -29,6 +29,14 @@ class RetrievedChunk:
     score: float
 
 
+@dataclass
+class HistoryTurn:
+    """One prior question/answer pair from the conversation, as sent by the client."""
+
+    question: str
+    answer: str
+
+
 NO_INFORMATION_ANSWER = "У меня нет этой информации в базе знаний."
 
 

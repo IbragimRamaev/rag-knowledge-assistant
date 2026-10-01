@@ -4,7 +4,7 @@ from anthropic import AsyncAnthropic
 
 from app.config import settings
 from app.core.interfaces import LLMProvider
-from app.core.models import NO_INFORMATION_ANSWER, RetrievedChunk
+from app.core.models import NO_INFORMATION_ANSWER, HistoryTurn, RetrievedChunk
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,22 @@ class ClaudeLLMProvider(LLMProvider):
         self._client = client or AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._model = model
 
-    async def generate(self, question: str, context_chunks: list[RetrievedChunk]) -> str:
+    async def generate(
+        self,
+        question: str,
+        context_chunks: list[RetrievedChunk],
+        history: list[HistoryTurn] | None = None,
+    ) -> str:
         context = "\n\n".join(chunk.text for chunk in context_chunks)
         user_message = f"<context>\n{context}\n</context>\n\n<question>\n{question}\n</question>"
+
+        # Prior turns as plain dialogue (for tone only) - the <context> grounding is
+        # scoped to the current turn alone, not re-sent for earlier ones.
+        messages = []
+        for turn in history or []:
+            messages.append({"role": "user", "content": turn.question})
+            messages.append({"role": "assistant", "content": turn.answer})
+        messages.append({"role": "user", "content": user_message})
 
         # No `temperature` here on purpose: it's removed for claude-sonnet-5 - passing
         # it (even via extra_body) fails with 400 "temperature is deprecated for this
@@ -45,7 +58,7 @@ class ClaudeLLMProvider(LLMProvider):
             max_tokens=_MAX_TOKENS,
             system=_SYSTEM_PROMPT,
             thinking={"type": "disabled"},
-            messages=[{"role": "user", "content": user_message}],
+            messages=messages,
         )
         logger.info(
             "Claude usage: model=%s input_tokens=%d output_tokens=%d",
