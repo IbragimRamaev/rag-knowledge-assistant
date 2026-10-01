@@ -50,7 +50,9 @@ def test_overlap_between_adjacent_chunks():
     for previous, current in zip(chunks, chunks[1:]):
         previous_sentences = set(split_into_sentences(previous.text))
         current_sentences = set(split_into_sentences(current.text))
-        assert previous_sentences & current_sentences, "adjacent chunks should share at least one sentence"
+        assert previous_sentences & current_sentences, (
+            "adjacent chunks should share at least one sentence"
+        )
 
 
 def test_empty_document_produces_no_chunks():

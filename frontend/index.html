@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAG Knowledge Assistant</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>RAG Knowledge Assistant</h1>
+      <p>Задайте вопрос по внутренней базе знаний компании.</p>
+    </header>
+
+    <div id="historyEl">
+      <div id="empty-state">
+        <p>Например:</p>
+        <div class="example-questions">
+          <button type="button" class="example-question">Сколько дней отпуска положено сотруднику?</button>
+          <button type="button" class="example-question">Как оплачивается больничный лист?</button>
+          <button type="button" class="example-question">Можно ли работать удалённо?</button>
+        </div>
+      </div>
+    </div>
+
+    <form id="ask-form">
+      <textarea id="question-input" rows="1" placeholder="Задайте вопрос..." autocomplete="off"></textarea>
+      <button type="submit">Отправить</button>
+    </form>
+    <p class="input-hint">Enter — отправить, Shift+Enter — новая строка</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

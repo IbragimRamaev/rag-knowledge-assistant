@@ -24,7 +24,7 @@ TEST_QUESTION = "Сколько дней отпуска положено сот�
 async def main() -> None:
     embedding_provider = OpenAIEmbeddingProvider()
 
-    chunks = ingest_documents(DOCUMENTS_DIR, embedding_provider)
+    chunks = await ingest_documents(DOCUMENTS_DIR, embedding_provider)
     print(f"Ingested {len(chunks)} chunks from {DOCUMENTS_DIR}")
 
     store = PgVectorStore(settings.database_url)
@@ -32,12 +32,14 @@ async def main() -> None:
         await store.save_chunks(chunks)
         print(f"Saved {len(chunks)} chunks (company_id={settings.default_company_id})\n")
 
-        [query_embedding] = embedding_provider.embed([TEST_QUESTION])
+        [query_embedding] = await embedding_provider.embed([TEST_QUESTION])
         results = await store.search(query_embedding, top_k=3)
 
         print(f"Query: {TEST_QUESTION!r}\n")
         for rank, result in enumerate(results, start=1):
-            print(f"{rank}. score={result.score:.4f} [{result.source_document}#{result.chunk_index}]")
+            print(
+                f"{rank}. score={result.score:.4f} [{result.source_document}#{result.chunk_index}]"
+            )
             print(f"   {result.text[:200]}\n")
     finally:
         await store.close()
