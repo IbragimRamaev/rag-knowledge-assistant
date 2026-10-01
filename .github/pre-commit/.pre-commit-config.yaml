@@ -19,7 +19,11 @@ repos:
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-        args: ["--baseline", ".secrets.baseline"]
+        args: ["--baseline", ".github/pre-commit/.secrets.baseline"]
+        # The baseline itself stores hashes that look like high-entropy secrets to the
+        # scanner - when it lived at the repo root as .secrets.baseline the hook's own
+        # self-exclusion caught that; now that it's nested, exclude it explicitly.
+        exclude: '\.github/pre-commit/\.secrets\.baseline$'
 
   - repo: local
     hooks:

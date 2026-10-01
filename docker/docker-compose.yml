@@ -1,3 +1,5 @@
+name: rag-knowledge-assistant
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -18,11 +20,16 @@ services:
       retries: 10
 
   app:
-    build: .
+    build:
+      # Context stays the repo root (one level up from this file) - the Dockerfile
+      # COPYs app/ and data/ from there, and .dockerignore must live at the context
+      # root too (Docker doesn't support locating it anywhere else).
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: rag-app
     restart: unless-stopped
     env_file:
-      - .env
+      - ../.env
     environment:
       # Overrides the .env value (which points at localhost for local, non-Docker
       # runs) - inside the compose network the DB is reachable by service name.
@@ -32,7 +39,7 @@ services:
     volumes:
       # Dev convenience: host code overlays the image's copy so edits show up without
       # a rebuild. The Dockerfile's own CMD (no --reload) stays what a prod image runs.
-      - ./app:/app/app
+      - ../app:/app/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       postgres:
