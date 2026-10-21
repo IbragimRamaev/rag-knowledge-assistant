@@ -40,6 +40,10 @@ class PgVectorStore(VectorStore):
             await self._pool.close()
             self._pool = None
 
+    async def ping(self) -> None:
+        pool = await self._get_pool()
+        await pool.fetchval("SELECT 1")
+
     async def save_chunks(self, chunks: list[ChunkData], company_id: str | None = None) -> None:
         if not chunks:
             return

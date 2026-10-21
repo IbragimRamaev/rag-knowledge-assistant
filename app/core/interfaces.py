@@ -26,6 +26,11 @@ class VectorStore(ABC):
     ) -> list[RetrievedChunk]:
         """Return the top_k chunks most similar to query_embedding, best match first."""
 
+    @abstractmethod
+    async def ping(self) -> None:
+        """Cheap liveness check - raise if the store isn't reachable. Used by
+        GET /health; must not do anything as expensive as an actual search."""
+
 
 class LLMProvider(ABC):
     """Generates a grounded answer from a question and retrieved context. Swap implementations

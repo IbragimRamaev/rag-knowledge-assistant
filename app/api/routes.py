@@ -43,6 +43,18 @@ def _validate_ask_payload(payload: AskRequest) -> tuple[str, list[HistoryTurn]]:
     return question, history
 
 
+@router.get("/health")
+async def health(vector_store: VectorStoreDep) -> dict[str, str]:
+    """Liveness/readiness probe for Docker's healthcheck - no LLM call, just a
+    cheap DB ping. Raises 503 if the vector store isn't reachable."""
+    try:
+        await vector_store.ping()
+    except _DB_UNAVAILABLE_ERRORS as exc:
+        raise HTTPException(status_code=503, detail=_DB_UNAVAILABLE_DETAIL) from exc
+
+    return {"status": "ok"}
+
+
 @router.post("/ask", response_model=AskResponse)
 async def ask(payload: AskRequest, rag_engine: RAGEngineDep) -> AskResponse:
     question, history = _validate_ask_payload(payload)

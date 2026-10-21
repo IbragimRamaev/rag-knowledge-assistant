@@ -13,6 +13,10 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Postgres's own entrypoint runs every *.sql here, but only while initializing
+      # a brand-new (empty) data directory - a no-op on every subsequent start, and
+      # it won't pick up later schema.sql edits on an existing volume.
+      - ../app/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rag_db}"]
       interval: 5s
@@ -41,6 +45,14 @@ services:
       # a rebuild. The Dockerfile's own CMD (no --reload) stays what a prod image runs.
       - ../app:/app/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      # No curl in python:3.12-slim - python itself is always present, so it
+      # doubles as the HTTP client. A non-2xx/unreachable raises and fails the check.
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy

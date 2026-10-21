@@ -1,7 +1,9 @@
--- Step 3 (Storage) schema for the `chunks` table. No Alembic yet — run this
--- by hand whenever the schema changes.
+-- Step 3 (Storage) schema for the `chunks` table. No Alembic yet.
 --
--- How to run (from the project root, against the local docker-compose Postgres):
+-- docker-compose mounts this file into postgres's /docker-entrypoint-initdb.d/,
+-- so it applies automatically — but only while Postgres is initializing a brand-new
+-- (empty) data directory/volume. On an existing volume, a later edit to this file
+-- needs to be applied by hand:
 --   docker exec -i rag-postgres psql -U postgres -d rag_db < app/db/schema.sql
 --
 -- Or interactively, once connected via `docker exec -it rag-postgres psql -U postgres -d rag_db`,
