@@ -34,6 +34,110 @@ function appendMessage(text, className) {
   return el;
 }
 
+// Scans a single line for **bold** spans and appends them as real nodes - never
+// innerHTML, so anything that isn't a recognized **marker** (an HTML tag, a
+// "[link](url)", a bare "#" or "`code`") is just literal text, inert by
+// construction. An unclosed "**" (no closing marker yet in this line) is left as
+// literal text too - renderAnswer() re-parses the full text on every chunk, so once
+// the closing "**" streams in, the next call renders it correctly.
+function appendBoldSpans(parentEl, line) {
+  let remaining = line;
+  while (remaining.length > 0) {
+    const start = remaining.indexOf("**");
+    if (start === -1) {
+      parentEl.appendChild(document.createTextNode(remaining));
+      return;
+    }
+
+    const end = remaining.indexOf("**", start + 2);
+    if (end === -1) {
+      parentEl.appendChild(document.createTextNode(remaining));
+      return;
+    }
+
+    if (start > 0) {
+      parentEl.appendChild(document.createTextNode(remaining.slice(0, start)));
+    }
+
+    const boldText = remaining.slice(start + 2, end);
+    if (boldText.length > 0) {
+      const strong = document.createElement("strong");
+      strong.textContent = boldText;
+      parentEl.appendChild(strong);
+    }
+
+    remaining = remaining.slice(end + 2);
+  }
+}
+
+// Appends `text` (one paragraph/list-item's worth, possibly with internal single
+// newlines) to parentEl: **bold** parsed per line, lines joined with real <br>
+// elements.
+function appendInlineContent(parentEl, text) {
+  const lines = text.split("\n");
+  lines.forEach((line, index) => {
+    appendBoldSpans(parentEl, line);
+    if (index < lines.length - 1) {
+      parentEl.appendChild(document.createElement("br"));
+    }
+  });
+}
+
+// Renders the full accumulated answer text into container, from scratch, every
+// time it's called (cheap at chat-message sizes - simpler and more robust against
+// chunk boundaries than trying to patch the DOM incrementally). Recognizes
+// blank-line-separated paragraphs, "- " bullet lists, and **bold** - nothing else.
+// A list doesn't need a blank line to separate it from surrounding prose: within
+// each block, runs of consecutive "- " lines become their own <ul>, runs of other
+// lines become their own paragraph, and the two kinds can alternate (e.g. a
+// "**Header**\n- item1\n- item2" block with no blank line becomes one paragraph
+// followed by one list). Links, images, HTML, headers and tables are deliberately
+// not special-cased, so they render as literal text via the same
+// textContent/createTextNode path as everything else.
+function renderAnswer(container, text) {
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  const blocks = text.split(/\n{2,}/);
+
+  for (const block of blocks) {
+    if (block.trim().length === 0) {
+      continue;
+    }
+
+    const lines = block
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    let i = 0;
+    while (i < lines.length) {
+      if (lines[i].startsWith("- ")) {
+        const ul = document.createElement("ul");
+        ul.className = "answer-list";
+        while (i < lines.length && lines[i].startsWith("- ")) {
+          const li = document.createElement("li");
+          appendInlineContent(li, lines[i].slice(2));
+          ul.appendChild(li);
+          i++;
+        }
+        container.appendChild(ul);
+      } else {
+        const paragraphLines = [];
+        while (i < lines.length && !lines[i].startsWith("- ")) {
+          paragraphLines.push(lines[i]);
+          i++;
+        }
+        const p = document.createElement("div");
+        p.className = "answer-paragraph";
+        appendInlineContent(p, paragraphLines.join("\n"));
+        container.appendChild(p);
+      }
+    }
+  }
+}
+
 async function submitQuestion(rawQuestion) {
   const question = rawQuestion.trim();
   if (!question) {
@@ -59,7 +163,6 @@ async function submitQuestion(rawQuestion) {
 
   let answerText = "";
   let sourceDocuments = [];
-  let sawAnyText = false;
 
   try {
     const response = await fetch(`${API_BASE_URL}/ask/stream`, {
@@ -102,12 +205,8 @@ async function submitQuestion(rawQuestion) {
         const data = JSON.parse(line.slice("data:".length).trim());
 
         if (data.type === "text") {
-          if (!sawAnyText) {
-            answerEl.textContent = "";
-          }
-          sawAnyText = true;
           answerText += data.content;
-          answerEl.textContent = answerText;
+          renderAnswer(answerEl, answerText);
           historyEl.scrollTop = historyEl.scrollHeight;
         } else if (data.type === "sources") {
           sourceDocuments = data.content;

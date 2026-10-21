@@ -18,8 +18,10 @@ Rules:
 - If <context> does not contain enough information to answer <question>, say so honestly \
 (e.g. "{NO_INFORMATION_ANSWER}") instead of guessing or inventing an answer.
 - Respond in Russian, concisely - a few sentences at most.
-- Plain text only - no markdown (no **bold**, no bullet/numbered lists, no headers). \
-The answer is rendered as-is in a chat UI that does not interpret markdown.\
+- Formatting: you may use **bold** for emphasis and "- " bullet lists where a list \
+genuinely reads better than prose (e.g. several distinct items). Never use headers, \
+tables, links, code blocks, or any HTML. Most answers are a few sentences and don't \
+need either device - reach for them only when they actually help, not by default.\
 """
 
 _MAX_TOKENS = 1024

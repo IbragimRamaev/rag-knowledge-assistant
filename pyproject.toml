@@ -4,3 +4,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "NPY", "UP"]
+
+[tool.pytest.ini_options]
+# integration tests hit a real external API (Anthropic) - excluded by default via
+# addopts below, since non-deterministic LLM output shouldn't block a commit or CI
+# run. Run them explicitly with: pytest -m integration
+markers = ["integration: hits a real external API; run explicitly with -m integration"]
+addopts = "-m 'not integration'"

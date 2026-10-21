@@ -143,6 +143,21 @@
     font-style: italic;
   }
 
+  .answer-paragraph + .answer-paragraph,
+  .answer-paragraph + .answer-list,
+  .answer-list + .answer-paragraph {
+    margin-top: 10px;
+  }
+
+  .answer-list {
+    margin: 0;
+    padding-left: 1.3em;
+  }
+
+  .answer-list li + li {
+    margin-top: 4px;
+  }
+
   .message-error {
     align-self: flex-start;
     background: var(--error-bg);

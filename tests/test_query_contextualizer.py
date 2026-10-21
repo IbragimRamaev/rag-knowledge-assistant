@@ -67,6 +67,7 @@ async def test_rewrite_query_falls_back_when_the_model_answers_instead_of_rewrit
     assert any("derailed" in record.message for record in caplog.records)
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not settings.anthropic_api_key,
     reason="requires a real ANTHROPIC_API_KEY - hits the live Haiku API",
