@@ -49,6 +49,15 @@ class AnswerResult:
 
 
 @dataclass
+class GenerationResult:
+    """The result of LLMProvider.generate(): the answer text plus whichever documents
+    the model explicitly cited (via search_result citations), if it cited any."""
+
+    text: str
+    cited_documents: list[str]
+
+
+@dataclass
 class StreamTextChunk:
     """One incremental piece of text from RAGEngine.answer_stream()."""
 

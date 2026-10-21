@@ -86,6 +86,31 @@ class RAGEngine:
             )
         )
 
+    def _resolve_source_documents(
+        self,
+        answer_text: str,
+        cited_documents: list[str],
+        chunks: list[RetrievedChunk],
+        best_score: float,
+    ) -> list[str]:
+        """Decide what to report as source_documents, in priority order:
+        1. The model said it doesn't know -> nothing actually grounded it.
+        2. The model cited specific documents -> trust that over score alone; it
+           reflects what was actually used, not just what was structurally similar.
+        3. The model answered but cited nothing (citations are a Sonnet-side
+           feature that can simply not fire) -> fall back to the score-margin
+           heuristic so a real answer still gets a best-effort attribution."""
+        if answer_text.strip() == NO_INFORMATION_ANSWER:
+            return []
+        if cited_documents:
+            return cited_documents
+
+        # Measures how often citations don't fire for a real answer - if this logs
+        # often, the margin heuristic is still doing real work, not just covering
+        # a rare gap.
+        logger.info("No citations for a real answer; falling back to score-margin filtering")
+        return self._filter_source_documents(chunks, best_score)
+
     async def answer(
         self,
         question: str,
@@ -101,10 +126,12 @@ class RAGEngine:
         chunks, best_score = retrieved
 
         recent_history = history[-GENERATION_HISTORY_TURNS:]
-        answer_text = await self._llm_provider.generate(question, chunks, history=recent_history)
+        result = await self._llm_provider.generate(question, chunks, history=recent_history)
 
-        source_documents = self._filter_source_documents(chunks, best_score)
-        return AnswerResult(answer=answer_text, source_documents=source_documents)
+        source_documents = self._resolve_source_documents(
+            result.text, result.cited_documents, chunks, best_score
+        )
+        return AnswerResult(answer=result.text, source_documents=source_documents)
 
     async def answer_stream(
         self,
@@ -126,10 +153,18 @@ class RAGEngine:
         chunks, best_score = retrieved
 
         recent_history = history[-GENERATION_HISTORY_TURNS:]
-        async for text in self._llm_provider.generate_stream(
+        answer_parts = []
+        cited_documents: list[str] = []
+        async for event in self._llm_provider.generate_stream(
             question, chunks, history=recent_history
         ):
-            yield StreamTextChunk(text=text)
+            if isinstance(event, StreamTextChunk):
+                answer_parts.append(event.text)
+                yield event
+            else:
+                cited_documents = event.source_documents
 
-        source_documents = self._filter_source_documents(chunks, best_score)
+        source_documents = self._resolve_source_documents(
+            "".join(answer_parts), cited_documents, chunks, best_score
+        )
         yield StreamSources(source_documents=source_documents)
