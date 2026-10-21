@@ -1,4 +1,5 @@
 import logging
+from collections.abc import AsyncIterator
 
 from anthropic import AsyncAnthropic
 
@@ -33,12 +34,9 @@ class ClaudeLLMProvider(LLMProvider):
         self._client = client or AsyncAnthropic(api_key=settings.anthropic_api_key)
         self._model = model
 
-    async def generate(
-        self,
-        question: str,
-        context_chunks: list[RetrievedChunk],
-        history: list[HistoryTurn] | None = None,
-    ) -> str:
+    def _build_messages(
+        self, question: str, context_chunks: list[RetrievedChunk], history: list[HistoryTurn] | None
+    ) -> list[dict]:
         context = "\n\n".join(chunk.text for chunk in context_chunks)
         user_message = f"<context>\n{context}\n</context>\n\n<question>\n{question}\n</question>"
 
@@ -49,6 +47,15 @@ class ClaudeLLMProvider(LLMProvider):
             messages.append({"role": "user", "content": turn.question})
             messages.append({"role": "assistant", "content": turn.answer})
         messages.append({"role": "user", "content": user_message})
+        return messages
+
+    async def generate(
+        self,
+        question: str,
+        context_chunks: list[RetrievedChunk],
+        history: list[HistoryTurn] | None = None,
+    ) -> str:
+        messages = self._build_messages(question, context_chunks, history)
 
         # No `temperature` here on purpose: it's removed for claude-sonnet-5 - passing
         # it (even via extra_body) fails with 400 "temperature is deprecated for this
@@ -67,3 +74,29 @@ class ClaudeLLMProvider(LLMProvider):
             response.usage.output_tokens,
         )
         return "".join(block.text for block in response.content if block.type == "text")
+
+    async def generate_stream(
+        self,
+        question: str,
+        context_chunks: list[RetrievedChunk],
+        history: list[HistoryTurn] | None = None,
+    ) -> AsyncIterator[str]:
+        messages = self._build_messages(question, context_chunks, history)
+
+        async with self._client.messages.stream(
+            model=self._model,
+            max_tokens=_MAX_TOKENS,
+            system=_SYSTEM_PROMPT,
+            thinking={"type": "disabled"},
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+
+            final_message = await stream.get_final_message()
+            logger.info(
+                "Claude usage (stream): model=%s input_tokens=%d output_tokens=%d",
+                self._model,
+                final_message.usage.input_tokens,
+                final_message.usage.output_tokens,
+            )

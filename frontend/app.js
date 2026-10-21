@@ -34,25 +34,6 @@ function appendMessage(text, className) {
   return el;
 }
 
-function appendAssistantMessage(answer, sourceDocuments) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "message message-assistant";
-
-  const answerEl = document.createElement("div");
-  answerEl.textContent = answer;
-  wrapper.appendChild(answerEl);
-
-  if (sourceDocuments && sourceDocuments.length > 0) {
-    const sourcesEl = document.createElement("div");
-    sourcesEl.className = "sources";
-    sourcesEl.textContent = `Источники: ${sourceDocuments.join(", ")}`;
-    wrapper.appendChild(sourcesEl);
-  }
-
-  historyEl.appendChild(wrapper);
-  historyEl.scrollTop = historyEl.scrollHeight;
-}
-
 async function submitQuestion(rawQuestion) {
   const question = rawQuestion.trim();
   if (!question) {
@@ -66,30 +47,97 @@ async function submitQuestion(rawQuestion) {
   input.disabled = true;
   submitButton.disabled = true;
 
-  const loadingEl = appendMessage("Думаю...", "message-loading");
+  // The assistant bubble is created up front and filled in as text chunks arrive -
+  // "Думаю..." is the placeholder until the first real chunk shows up.
+  const wrapper = document.createElement("div");
+  wrapper.className = "message message-assistant";
+  const answerEl = document.createElement("div");
+  answerEl.textContent = "Думаю...";
+  wrapper.appendChild(answerEl);
+  historyEl.appendChild(wrapper);
+  historyEl.scrollTop = historyEl.scrollHeight;
+
+  let answerText = "";
+  let sourceDocuments = [];
+  let sawAnyText = false;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/ask`, {
+    const response = await fetch(`${API_BASE_URL}/ask/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, history: conversationHistory }),
     });
 
-    loadingEl.remove();
-
-    const body = await response.json().catch(() => null);
-
     if (!response.ok) {
+      wrapper.remove();
+      const body = await response.json().catch(() => null);
       const detail = body && body.detail ? body.detail : `Ошибка ${response.status}`;
       appendMessage(detail, "message-error");
       return;
     }
 
-    appendAssistantMessage(body.answer, body.source_documents);
-    conversationHistory.push({ question, answer: body.answer });
+    const reader = response.body.getReader();
+    // {stream: true} matters: a multi-byte UTF-8 character (Cyrillic) can land split
+    // across two chunks, and the decoder needs to carry the partial bytes forward.
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let erroredOut = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop(); // last entry may be a partial event - keep it for next read
+
+      for (const rawEvent of events) {
+        const line = rawEvent.trim();
+        if (!line.startsWith("data:")) {
+          continue;
+        }
+
+        const data = JSON.parse(line.slice("data:".length).trim());
+
+        if (data.type === "text") {
+          if (!sawAnyText) {
+            answerEl.textContent = "";
+          }
+          sawAnyText = true;
+          answerText += data.content;
+          answerEl.textContent = answerText;
+          historyEl.scrollTop = historyEl.scrollHeight;
+        } else if (data.type === "sources") {
+          sourceDocuments = data.content;
+        } else if (data.type === "error") {
+          wrapper.remove();
+          appendMessage(data.content, "message-error");
+          erroredOut = true;
+        }
+      }
+
+      if (erroredOut) {
+        break;
+      }
+    }
+
+    if (erroredOut) {
+      return;
+    }
+
+    if (sourceDocuments.length > 0) {
+      const sourcesEl = document.createElement("div");
+      sourcesEl.className = "sources";
+      sourcesEl.textContent = `Источники: ${sourceDocuments.join(", ")}`;
+      wrapper.appendChild(sourcesEl);
+    }
+
+    conversationHistory.push({ question, answer: answerText });
     conversationHistory = conversationHistory.slice(-MAX_HISTORY_MESSAGES);
   } catch (err) {
-    loadingEl.remove();
+    wrapper.remove();
     appendMessage(`Не удалось связаться с сервером: ${err.message}`, "message-error");
   } finally {
     input.disabled = false;

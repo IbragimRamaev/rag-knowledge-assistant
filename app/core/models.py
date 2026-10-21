@@ -46,3 +46,17 @@ class AnswerResult:
 
     answer: str
     source_documents: list[str]
+
+
+@dataclass
+class StreamTextChunk:
+    """One incremental piece of text from RAGEngine.answer_stream()."""
+
+    text: str
+
+
+@dataclass
+class StreamSources:
+    """Final event from RAGEngine.answer_stream(): which documents grounded the answer."""
+
+    source_documents: list[str]

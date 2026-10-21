@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 
 from app.core.models import ChunkData, HistoryTurn, RetrievedChunk
 
@@ -39,3 +40,13 @@ class LLMProvider(ABC):
     ) -> str:
         """Answer using only context_chunks; state ignorance if they're insufficient.
         `history` (recent prior turns, if any) shapes tone only - it is not grounding."""
+
+    @abstractmethod
+    def generate_stream(
+        self,
+        question: str,
+        context_chunks: list[RetrievedChunk],
+        history: list[HistoryTurn] | None = None,
+    ) -> AsyncIterator[str]:
+        """Same contract as generate(), yielded incrementally as text deltas instead
+        of returned as one string."""
