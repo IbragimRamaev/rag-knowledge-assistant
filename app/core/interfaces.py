@@ -1,7 +1,14 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 
-from app.core.models import ChunkData, HistoryTurn, RetrievedChunk
+from app.core.models import (
+    ChunkData,
+    GenerationResult,
+    HistoryTurn,
+    RetrievedChunk,
+    StreamSources,
+    StreamTextChunk,
+)
 
 
 class EmbeddingProvider(ABC):
@@ -42,9 +49,11 @@ class LLMProvider(ABC):
         question: str,
         context_chunks: list[RetrievedChunk],
         history: list[HistoryTurn] | None = None,
-    ) -> str:
+    ) -> GenerationResult:
         """Answer using only context_chunks; state ignorance if they're insufficient.
-        `history` (recent prior turns, if any) shapes tone only - it is not grounding."""
+        `history` (recent prior turns, if any) shapes tone only - it is not grounding.
+        `cited_documents` on the result is whichever of context_chunks' source
+        documents the model actually relied on, if it's able to say - empty if not."""
 
     @abstractmethod
     def generate_stream(
@@ -52,6 +61,7 @@ class LLMProvider(ABC):
         question: str,
         context_chunks: list[RetrievedChunk],
         history: list[HistoryTurn] | None = None,
-    ) -> AsyncIterator[str]:
-        """Same contract as generate(), yielded incrementally as text deltas instead
-        of returned as one string."""
+    ) -> AsyncIterator[StreamTextChunk | StreamSources]:
+        """Same contract as generate(), streamed: text chunks as they're generated,
+        then exactly one final StreamSources event carrying cited_documents (as
+        generate() does, this is empty if the model didn't cite anything)."""
